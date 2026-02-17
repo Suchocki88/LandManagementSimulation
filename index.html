@@ -125,7 +125,11 @@
         }
 
         .hex-grid {
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             z-index: 1;
         }
 
@@ -445,6 +449,111 @@
             margin-bottom: 8px;
         }
 
+        /* Rule Builder */
+        .rule-builder {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .rule-builder h3 {
+            font-family: 'Instrument Serif', serif;
+            color: var(--sand);
+            font-size: 1em;
+            margin-bottom: 4px;
+        }
+
+        .rule-builder .rb-subtitle {
+            font-size: 0.72em;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .rule-row {
+            display: grid;
+            grid-template-columns: 54px 1fr;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .rule-dice-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.82em;
+            font-weight: 600;
+        }
+
+        .rule-dice-label .prob-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .rule-dice-label .prob-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--accent-gold);
+            opacity: 0.5;
+        }
+
+        .rule-select {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.78em;
+            cursor: pointer;
+        }
+
+        .rule-select:focus {
+            outline: none;
+            border-color: var(--accent-gold);
+        }
+
+        .rule-select option {
+            background: var(--bg-dark);
+            color: var(--text-primary);
+        }
+
+        .prob-hint {
+            font-size: 0.68em;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        .rule-lock-btn {
+            width: 100%;
+            background: var(--accent-gold);
+            color: var(--bg-dark);
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+
+        .rule-lock-btn:hover { box-shadow: 0 3px 12px rgba(241, 196, 15, 0.3); }
+
+        .rule-locked-msg {
+            text-align: center;
+            font-size: 0.78em;
+            color: var(--accent-gold);
+            padding: 8px;
+            font-weight: 600;
+        }
+
         @media (max-width: 900px) {
             .main-layout { grid-template-columns: 1fr; }
             .control-panel { border-left: none; border-top: 1px solid rgba(255,255,255,0.06); }
@@ -503,6 +612,13 @@
                     <div class="dc-bar"><div class="dc-fill" id="eco-bar" style="width:82%;background:var(--good)"></div></div>
                     <div class="dc-detail" id="eco-detail">Services intact</div>
                 </div>
+            </div>
+
+            <div class="rule-builder" id="rule-builder">
+                <h3>🎲 Your Dice Rules — Design Your Model</h3>
+                <p class="rb-subtitle">Assign an outcome to each dice total. This is YOUR probability model — you decide what events each roll triggers. The bars show how likely each total is with two dice. Choose wisely: common rolls (6, 7, 8) will dominate your island's fate.</p>
+                <div id="rule-rows"></div>
+                <button class="rule-lock-btn" id="lock-rules-btn" onclick="lockRules()">🔒 Lock Rules &amp; Begin Simulation</button>
             </div>
 
             <div class="history-panel">
@@ -569,14 +685,14 @@
                 </div>
             </div>
 
-            <button class="advance-btn" onclick="advanceDecade()" id="advance-btn">
+            <button class="advance-btn" onclick="advanceDecade()" id="advance-btn" disabled>
                 ▶ Advance to Next Decade
             </button>
 
             <div class="panel-section">
                 <h3>📋 Event Log</h3>
                 <div class="event-log" id="event-log">
-                    <div class="event-item"><strong>2020s:</strong> Your island has 19 habitat patches, 12 native species, and a population of 5,000. Manage wisely.</div>
+                    <div class="event-item"><strong>Step 1:</strong> Design your probability model by assigning outcomes to each dice total in the panel on the left. Then lock your rules to begin managing your island.</div>
                 </div>
             </div>
         </div>
@@ -592,6 +708,93 @@
     </div>
 
     <script>
+        // === POSSIBLE DICE OUTCOMES (student chooses) ===
+        const DICE_EVENTS = {
+            'nothing':    { label: '☀️ Calm decade — no special event', icon: '☀️' },
+            'storm':      { label: '🌊 Severe storm — damages farms, reduces food', icon: '🌊' },
+            'drought':    { label: '☀️ Drought — freshwater reserves drop', icon: '🏜️' },
+            'invasive':   { label: '🐍 Invasive species — predator arrives or spreads', icon: '🐍' },
+            'good_rain':  { label: '🌧️ Good rainfall — aquifer recharges', icon: '🌧️' },
+            'ecotourism': { label: '🌺 Ecotourism boom — economy and food boost', icon: '🌺' },
+            'disease':    { label: '🦠 Disease outbreak — population declines', icon: '🦠' },
+            'aid':        { label: '🤝 International aid — food and water boost', icon: '🤝' },
+            'research':   { label: '🔬 Research breakthrough — bonus action next turn', icon: '🔬' },
+            'coral':      { label: '🐠 Coral recovery — coastal ecosystem boost', icon: '🐠' },
+            'fertile':    { label: '🌋 Volcanic enrichment — farm productivity boost', icon: '🌋' },
+            'erosion':    { label: '⛰️ Soil erosion — a farm tile degrades', icon: '⛰️' }
+        };
+
+        // Probability of each 2d6 total (out of 36)
+        const DICE_PROBS = { 2:1, 3:2, 4:3, 5:4, 6:5, 7:6, 8:5, 9:4, 10:3, 11:2, 12:1 };
+
+        // Default rule assignments (students can change these)
+        let diceRules = {
+            2: 'storm', 3: 'drought', 4: 'erosion', 5: 'invasive',
+            6: 'nothing', 7: 'nothing', 8: 'good_rain',
+            9: 'ecotourism', 10: 'coral', 11: 'research', 12: 'aid'
+        };
+
+        let rulesLocked = false;
+
+        function buildRuleRows() {
+            const container = document.getElementById('rule-rows');
+            container.innerHTML = '';
+
+            for (let total = 2; total <= 12; total++) {
+                const prob = DICE_PROBS[total];
+                const pct = ((prob / 36) * 100).toFixed(1);
+                const barWidth = (prob / 6) * 100;
+
+                const row = document.createElement('div');
+                row.className = 'rule-row';
+
+                row.innerHTML = `
+                    <div class="rule-dice-label">
+                        <span>${total}</span>
+                        <div class="prob-bar" style="width:${barWidth}%;min-width:4px"></div>
+                        <span class="prob-hint">${pct}%</span>
+                    </div>
+                    <select class="rule-select" id="rule-${total}" onchange="updateRule(${total}, this.value)" ${rulesLocked ? 'disabled' : ''}>
+                        ${Object.entries(DICE_EVENTS).map(([key, evt]) =>
+                            `<option value="${key}" ${diceRules[total] === key ? 'selected' : ''}>${evt.label}</option>`
+                        ).join('')}
+                    </select>
+                `;
+
+                container.appendChild(row);
+            }
+        }
+
+        function updateRule(total, value) {
+            diceRules[total] = value;
+        }
+
+        function lockRules() {
+            rulesLocked = true;
+            document.querySelectorAll('.rule-select').forEach(s => s.disabled = true);
+            document.getElementById('lock-rules-btn').style.display = 'none';
+
+            const builder = document.getElementById('rule-builder');
+            const msg = document.createElement('div');
+            msg.className = 'rule-locked-msg';
+            msg.textContent = '🔒 Rules locked — your probability model is active!';
+            builder.appendChild(msg);
+
+            // Enable game controls
+            document.getElementById('advance-btn').disabled = false;
+            addLog(`🎲 Your probability model is locked! Here's a summary:`, 'good');
+            for (let t = 2; t <= 12; t++) {
+                const pct = ((DICE_PROBS[t] / 36) * 100).toFixed(1);
+                const evt = DICE_EVENTS[diceRules[t]];
+                addLog(`&nbsp;&nbsp;Roll ${t} (${pct}%): ${evt.label.split(' — ')[0]}`, '');
+            }
+            addLog(`<strong>2020s:</strong> Your island has 19 habitat patches, 12 native species, and a population of 5,000. Choose 2 actions, then advance the decade.`, '');
+            updateDisplay();
+        }
+
+        // Initialize rule builder
+        buildRuleRows();
+
         // === GAME STATE ===
         const HEX_SIZE = 36;
         const TOTAL_DECADES = 10;
@@ -673,12 +876,25 @@
             const grid = document.getElementById('hex-grid');
             grid.innerHTML = '';
 
-            // Find center offset
             const container = document.getElementById('island-container');
             const cw = container.clientWidth;
             const ch = container.clientHeight;
-            const offsetX = cw / 2;
-            const offsetY = ch / 2;
+
+            // Calculate bounding box of all hex centers
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            HEX_LAYOUT.forEach(([q, r]) => {
+                const { x, y } = hexToPixel(q, r);
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+            });
+
+            // Center the grid in the container, accounting for hex radius
+            const gridW = maxX - minX + HEX_SIZE * 2;
+            const gridH = maxY - minY + HEX_SIZE * 2;
+            const offsetX = (cw - gridW) / 2 - minX + HEX_SIZE;
+            const offsetY = (ch - gridH) / 2 - minY + HEX_SIZE;
 
             HEX_LAYOUT.forEach((coord, i) => {
                 const [q, r] = coord;
@@ -816,8 +1032,6 @@
             const d2 = Math.floor(Math.random() * 6) + 1;
             animateDice(d1, d2);
 
-            const diceTotal = d1 + d2;
-
             // Population growth
             state.population = Math.round(state.population * (1 + state.popGrowth));
 
@@ -868,45 +1082,132 @@
                 (ecoBase / (19 * 5)) * 50 + (state.biodiversity * 0.3) + (state.freshwater * 0.2)
             ));
 
-            // === RANDOM EVENTS (dice-driven) ===
+            // === APPLY STUDENT-DEFINED DICE RULES ===
+            const diceTotal = d1 + d2;
+            const triggeredEvent = diceRules[diceTotal];
+            const eventInfo = DICE_EVENTS[triggeredEvent];
 
-            // Invasive species arrival (turn 3-4, if not present)
-            if (!state.invasivePresent && state.turn >= 3 && state.turn <= 5) {
-                if (diceTotal <= 7) {
-                    state.invasivePresent = true;
-                    state.invasiveStrength = 4;
-                    addLog(`🐍 INVASIVE PREDATOR ARRIVES! A brown tree snake has been spotted on the island. Native bird species are at severe risk. Use "Manage Invasive Species" action to respond!`, 'bad');
-                }
+            addLog(`🎲 Rolled ${d1} + ${d2} = ${diceTotal} → ${eventInfo.icon} ${eventInfo.label.split(' — ')[0]}`, '');
+
+            switch (triggeredEvent) {
+                case 'storm':
+                    state.foodSecurity = Math.max(0, state.foodSecurity - 15);
+                    const stormFarm = state.tiles.findIndex(t => t === 'farm');
+                    if (stormFarm >= 0) {
+                        state.tiles[stormFarm] = 'degraded';
+                        addLog(`🌊 Storm degraded farmland at Tile ${stormFarm + 1}. Food security dropped.`, 'bad');
+                    } else {
+                        addLog(`🌊 Storm hit but no farms were damaged.`, 'warn');
+                    }
+                    break;
+
+                case 'drought':
+                    const droughtSeverity = (counts.forest + counts.reserve < 5) ? 18 : 10;
+                    state.freshwater = Math.max(0, state.freshwater - droughtSeverity);
+                    addLog(`🏜️ Drought! Freshwater dropped by ${droughtSeverity}%. ${counts.forest + counts.reserve < 5 ? 'Low forest cover worsened it!' : 'Forest cover helped buffer the impact.'}`, 'bad');
+                    break;
+
+                case 'invasive':
+                    if (!state.invasivePresent) {
+                        state.invasivePresent = true;
+                        state.invasiveStrength = 4;
+                        addLog(`🐍 INVASIVE PREDATOR ARRIVES! A brown tree snake has been spotted. Native bird species at risk! Use "Manage Invasive Species" to respond.`, 'bad');
+                    } else {
+                        state.invasiveStrength = Math.min(6, state.invasiveStrength + 2);
+                        addLog(`🐍 Invasive species spreading! Threat level increased to ${state.invasiveStrength}/6.`, 'bad');
+                    }
+                    break;
+
+                case 'good_rain':
+                    const rainBoost = (counts.forest + counts.reserve >= 6) ? 14 : 8;
+                    state.freshwater = Math.min(100, state.freshwater + rainBoost);
+                    addLog(`🌧️ Good rainfall! Aquifer recharged by ${rainBoost}%. ${counts.forest + counts.reserve >= 6 ? 'Healthy forest cover enhanced absorption!' : ''}`, 'good');
+                    break;
+
+                case 'ecotourism':
+                    if (counts.reserve >= 1) {
+                        state.foodSecurity = Math.min(100, state.foodSecurity + 10);
+                        addLog(`🌺 Ecotourism boom! Protected reserves attract visitors. Food security +10%.`, 'good');
+                    } else {
+                        addLog(`🌺 Tourists interested but no protected areas to visit. Create reserves to benefit!`, 'warn');
+                    }
+                    break;
+
+                case 'disease':
+                    const popLoss = Math.round(state.population * 0.08);
+                    state.population = state.population - popLoss;
+                    addLog(`🦠 Disease outbreak! Population declined by ${popLoss.toLocaleString()}.`, 'bad');
+                    break;
+
+                case 'aid':
+                    state.foodSecurity = Math.min(100, state.foodSecurity + 8);
+                    state.freshwater = Math.min(100, state.freshwater + 8);
+                    addLog(`🤝 International aid arrives! Food +8%, Freshwater +8%.`, 'good');
+                    break;
+
+                case 'research':
+                    state.actionsLeft += 1;
+                    addLog(`🔬 Research breakthrough! Your team discovered a new conservation technique. Bonus action this decade!`, 'good');
+                    break;
+
+                case 'coral':
+                    const coastalCount = state.tiles.filter(t => t === 'coastal').length;
+                    if (coastalCount > 0) {
+                        state.ecosystemHealth = Math.min(100, state.ecosystemHealth + 8);
+                        state.biodiversity = Math.min(100, state.biodiversity + 5);
+                        addLog(`🐠 Coral reef recovery! Coastal ecosystems improving. Ecosystem +8%, Biodiversity +5%.`, 'good');
+                    } else {
+                        addLog(`🐠 Coral recovery attempted, but no healthy coastal zones remain.`, 'warn');
+                    }
+                    break;
+
+                case 'fertile':
+                    const fertFarms = state.tiles.filter(t => t === 'farm').length;
+                    if (fertFarms > 0) {
+                        state.foodSecurity = Math.min(100, state.foodSecurity + 12);
+                        addLog(`🌋 Volcanic mineral enrichment! Farm productivity surges. Food +12%.`, 'good');
+                    } else {
+                        addLog(`🌋 Fertile volcanic deposits, but no farmland to benefit.`, 'warn');
+                    }
+                    break;
+
+                case 'erosion':
+                    const erodeFarm = state.tiles.map((t, i) => t === 'farm' ? i : -1).filter(i => i >= 0);
+                    if (erodeFarm.length > 0) {
+                        const idx = erodeFarm[Math.floor(Math.random() * erodeFarm.length)];
+                        state.tiles[idx] = 'degraded';
+                        addLog(`⛰️ Soil erosion degraded farmland at Tile ${idx + 1}!`, 'bad');
+                    } else {
+                        addLog(`⛰️ Erosion risk, but no farmland was affected.`, 'warn');
+                    }
+                    break;
+
+                case 'nothing':
+                default:
+                    addLog(`☀️ Calm decade — no major environmental events.`, '');
+                    break;
             }
 
-            // Invasive strength grows if unmanaged
+            // Invasive species ongoing damage (independent of dice — represents persistent threat)
             if (state.invasivePresent && state.invasiveStrength > 0) {
-                state.invasiveStrength = Math.min(6, state.invasiveStrength + 1);
-            }
-
-            // Storm event (dice driven)
-            if (diceTotal === 2 || diceTotal === 12) {
-                addLog(`🌊 Extreme storm hits the island! Coastal areas damaged, crops destroyed.`, 'bad');
-                state.foodSecurity = Math.max(0, state.foodSecurity - 15);
-                // Degrade a random farm
-                const farmIdx = state.tiles.findIndex(t => t === 'farm');
-                if (farmIdx >= 0) {
-                    state.tiles[farmIdx] = 'degraded';
-                    addLog(`Storm degraded farmland at Tile ${farmIdx + 1}.`, 'bad');
+                const speciesRoll = d1; // Use first die for species survival check
+                if (speciesRoll <= Math.floor(state.invasiveStrength / 2)) {
+                    state.nativeSpecies = Math.max(1, state.nativeSpecies - 1);
+                    addLog(`🦜 A native species has gone locally extinct! (${state.nativeSpecies}/12 remaining). Manage invasives to prevent further loss!`, 'bad');
+                }
+                // Invasive strength slowly grows if unmanaged
+                if (triggeredEvent !== 'invasive') {
+                    state.invasiveStrength = Math.min(6, state.invasiveStrength + 1);
                 }
             }
 
-            // Drought (low dice + low forest)
-            if (diceTotal <= 4 && counts.forest + counts.reserve < 5) {
-                addLog(`☀️ Drought conditions! Low forest cover reduces rainfall capture.`, 'bad');
-                state.freshwater = Math.max(0, state.freshwater - 12);
-            }
+            // === SYSTEM CONSEQUENCES (always apply regardless of dice) ===
 
             // Degradation: overfarmed land with low water degrades
             if (state.freshwater < 30) {
-                const farmTiles = state.tiles.map((t, i) => t === 'farm' ? i : -1).filter(i => i >= 0);
-                if (farmTiles.length > 0 && d1 <= 2) {
-                    const idx = farmTiles[Math.floor(Math.random() * farmTiles.length)];
+                const dryFarms = state.tiles.map((t, i) => t === 'farm' ? i : -1).filter(i => i >= 0);
+                if (dryFarms.length > 0 && d2 <= 2) {
+                    const idx = dryFarms[Math.floor(Math.random() * dryFarms.length)];
                     state.tiles[idx] = 'degraded';
                     addLog(`🏜️ Farmland at Tile ${idx + 1} degraded due to water depletion!`, 'bad');
                 }
@@ -914,25 +1215,14 @@
 
             // Ecosystem collapse tipping point
             if (state.biodiversity < 25 && state.ecosystemHealth < 25) {
-                addLog(`⚠️ ECOSYSTEM COLLAPSE WARNING: Pollination, pest control, and soil health failing!`, 'bad');
+                addLog(`⚠️ TIPPING POINT: Ecosystem collapse! Pollination, pest control, and soil health failing. Food production crashing.`, 'bad');
                 state.foodSecurity = Math.max(0, state.foodSecurity - 20);
             }
 
             // Population pressure: if food low, population declines
             if (state.foodSecurity < 20) {
                 state.population = Math.round(state.population * 0.9);
-                addLog(`📉 Food shortage! Population declining.`, 'bad');
-            }
-
-            // Good events
-            if (diceTotal >= 10 && counts.reserve >= 2) {
-                addLog(`🌺 Ecotourism boom! Protected reserves attract visitors and revenue.`, 'good');
-                state.foodSecurity = Math.min(100, state.foodSecurity + 5);
-            }
-
-            if (diceTotal === 7 && counts.forest + counts.reserve >= 8) {
-                addLog(`🌧️ Healthy forest cover enhances rainfall. Aquifer recharging well.`, 'good');
-                state.freshwater = Math.min(100, state.freshwater + 8);
+                addLog(`📉 Food shortage! Population declining due to insufficient food production.`, 'bad');
             }
 
             // Record history
@@ -1030,7 +1320,19 @@
             state.history = { freshwater: [85], food: [60], bio: [100], eco: [82] };
             initTiles();
             document.getElementById('game-over').style.display = 'none';
-            document.getElementById('event-log').innerHTML = '<div class="event-item"><strong>2020s:</strong> Your island has 19 habitat patches, 12 native species, and a population of 5,000. Manage wisely.</div>';
+            document.getElementById('event-log').innerHTML = '<div class="event-item"><strong>Step 1:</strong> Design your probability model by assigning outcomes to each dice total below. Then lock your rules to begin.</div>';
+
+            // Reset rule builder
+            rulesLocked = false;
+            document.getElementById('lock-rules-btn').style.display = '';
+            const lockedMsg = document.querySelector('.rule-locked-msg');
+            if (lockedMsg) lockedMsg.remove();
+            buildRuleRows();
+
+            // Disable game controls until rules locked
+            document.getElementById('advance-btn').disabled = true;
+            document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+
             updateDisplay();
         }
 
@@ -1050,7 +1352,9 @@
             renderChart();
 
             // Disable buttons based on state
-            document.querySelectorAll('.action-btn').forEach(b => b.disabled = state.actionsLeft <= 0);
+            const canAct = rulesLocked && state.actionsLeft > 0 && !state.gameOver;
+            document.querySelectorAll('.action-btn').forEach(b => b.disabled = !canAct);
+            document.getElementById('advance-btn').disabled = !rulesLocked || state.gameOver;
         }
 
         function updateDashCard(id, val, suffix, detail) {
