@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Island Ecosystem Management Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ocean: #1a5276;
+            --ocean-light: #2980b9;
+            --forest: #1e7a3a;
+            --forest-light: #27ae60;
+            --farm: #d4a017;
+            --farm-light: #f1c40f;
+            --urban: #7f8c8d;
+            --urban-light: #95a5a6;
+            --degraded: #8b4513;
+            --degraded-light: #a0522d;
+            --coastal: #48c9b0;
+            --sand: #f4e8d1;
+            --bg-dark: #0c1a2a;
+            --bg-mid: #132337;
+            --bg-card: #1a2d42;
+            --text-primary: #ecf0f1;
+            --text-secondary: #7fb3d3;
+            --accent-gold: #f1c40f;
+            --accent-coral: #e74c3c;
+            --accent-teal: #1abc9c;
+            --good: #2ecc71;
+            --warn: #f39c12;
+            --danger: #e74c3c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-header {
+            background: linear-gradient(135deg, var(--bg-mid) 0%, var(--ocean) 100%);
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .app-header h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.6em;
+            color: var(--sand);
+        }
+
+        .header-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .header-stat {
+            text-align: center;
+        }
+
+        .header-stat .hs-label {
+            font-size: 0.65em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .header-stat .hs-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: var(--accent-gold);
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 0;
+            min-height: calc(100vh - 70px);
+        }
+
+        /* LEFT: Island + Dashboard */
+        .island-area {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+        }
+
+        .island-container {
+            position: relative;
+            background: radial-gradient(ellipse at center, #1a4a6e 0%, #0c2a4a 60%, var(--bg-dark) 100%);
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+            min-height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .ocean-waves {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0.1;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 40px,
+                rgba(255,255,255,0.05) 40px,
+                rgba(255,255,255,0.05) 42px
+            );
+        }
+
+        .hex-grid {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hex {
+            position: absolute;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        .hex:hover {
+            filter: drop-shadow(0 4px 12px rgba(255,255,255,0.15)) brightness(1.15);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .hex.selected {
+            filter: drop-shadow(0 0 12px var(--accent-gold)) brightness(1.2);
+            z-index: 10;
+        }
+
+        .hex-label {
+            position: absolute;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 600;
+            pointer-events: none;
+            color: rgba(255,255,255,0.9);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+            width: 60px;
+            margin-left: -30px;
+        }
+
+        .hex-icon {
+            position: absolute;
+            font-size: 18px;
+            pointer-events: none;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .dash-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .dash-card .dc-label {
+            font-size: 0.7em;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .dash-card .dc-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .dash-card .dc-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .dash-card .dc-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease, background 0.4s;
+        }
+
+        .dash-card .dc-detail {
+            font-size: 0.7em;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* History chart area */
+        .history-panel {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .history-panel h3 {
+            font-family: 'Instrument Serif', serif;
+            color: var(--sand);
+            font-size: 1em;
+            margin-bottom: 10px;
+        }
+
+        .chart-canvas {
+            width: 100%;
+            height: 140px;
+        }
+
+        /* RIGHT PANEL */
+        .control-panel {
+            background: var(--bg-mid);
+            padding: 16px;
+            border-left: 1px solid rgba(255,255,255,0.06);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .panel-section {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .panel-section h3 {
+            font-family: 'Instrument Serif', serif;
+            color: var(--sand);
+            font-size: 1em;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .action-btn {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.82em;
+            text-align: left;
+            margin-bottom: 6px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent-teal); }
+        .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .action-btn .act-icon { font-size: 1.2em; }
+        .action-btn .act-cost { margin-left: auto; font-size: 0.75em; color: var(--text-secondary); }
+
+        .advance-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--ocean-light), var(--accent-teal));
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .advance-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26, 188, 156, 0.3); }
+        .advance-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .event-log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.78em;
+        }
+
+        .event-item {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            line-height: 1.4;
+            color: var(--text-secondary);
+        }
+
+        .event-item strong { color: var(--text-primary); }
+        .event-item.bad { color: var(--accent-coral); }
+        .event-item.good { color: var(--good); }
+        .event-item.warn { color: var(--warn); }
+
+        .dice-display {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            min-height: 50px;
+        }
+
+        .die {
+            width: 42px;
+            height: 42px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            font-weight: 700;
+            color: var(--bg-dark);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+
+        .die.rolling {
+            animation: diceRoll 0.4s ease-in-out;
+        }
+
+        @keyframes diceRoll {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(1); }
+            75% { transform: rotate(270deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .hex-info {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .hex-info strong { color: var(--text-primary); }
+
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            font-size: 0.72em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .actions-remaining {
+            text-align: center;
+            font-size: 0.85em;
+            padding: 8px;
+            background: rgba(241, 196, 15, 0.1);
+            border-radius: 8px;
+            color: var(--accent-gold);
+            font-weight: 600;
+        }
+
+        .game-over-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .game-over-box {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            max-width: 500px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .game-over-box h2 {
+            font-family: 'Instrument Serif', serif;
+            font-size: 2em;
+            color: var(--sand);
+            margin-bottom: 10px;
+        }
+
+        .game-over-box p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .restart-btn {
+            background: var(--accent-teal);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        .intro-text {
+            font-size: 0.78em;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout { grid-template-columns: 1fr; }
+            .control-panel { border-left: none; border-top: 1px solid rgba(255,255,255,0.06); }
+            .dashboard { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <h1>🏝️ Island Ecosystem Simulator</h1>
+        <div class="header-info">
+            <div class="header-stat">
+                <div class="hs-label">Decade</div>
+                <div class="hs-value" id="decade-display">2020s</div>
+            </div>
+            <div class="header-stat">
+                <div class="hs-label">Population</div>
+                <div class="hs-value" id="pop-display">5,000</div>
+            </div>
+            <div class="header-stat">
+                <div class="hs-label">Turn</div>
+                <div class="hs-value" id="turn-display">1 / 10</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        <div class="island-area">
+            <div class="island-container" id="island-container">
+                <div class="ocean-waves"></div>
+                <div class="hex-grid" id="hex-grid"></div>
+            </div>
+
+            <div class="dashboard">
+                <div class="dash-card">
+                    <div class="dc-label">🌊 Freshwater</div>
+                    <div class="dc-value" id="fresh-val" style="color:var(--accent-teal)">85%</div>
+                    <div class="dc-bar"><div class="dc-fill" id="fresh-bar" style="width:85%;background:var(--accent-teal)"></div></div>
+                    <div class="dc-detail" id="fresh-detail">Aquifer healthy</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dc-label">🌾 Food Security</div>
+                    <div class="dc-value" id="food-val" style="color:var(--accent-gold)">60%</div>
+                    <div class="dc-bar"><div class="dc-fill" id="food-bar" style="width:60%;background:var(--accent-gold)"></div></div>
+                    <div class="dc-detail" id="food-detail">Subsistence level</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dc-label">🦜 Biodiversity</div>
+                    <div class="dc-value" id="bio-val" style="color:var(--good)">100%</div>
+                    <div class="dc-bar"><div class="dc-fill" id="bio-bar" style="width:100%;background:var(--good)"></div></div>
+                    <div class="dc-detail" id="bio-detail">12 native species</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dc-label">🌿 Ecosystem Health</div>
+                    <div class="dc-value" id="eco-val" style="color:var(--good)">82%</div>
+                    <div class="dc-bar"><div class="dc-fill" id="eco-bar" style="width:82%;background:var(--good)"></div></div>
+                    <div class="dc-detail" id="eco-detail">Services intact</div>
+                </div>
+            </div>
+
+            <div class="history-panel">
+                <h3>Trend History</h3>
+                <canvas id="history-chart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div class="panel-section">
+                <h3>🎯 Scenario</h3>
+                <p class="intro-text">You manage a Pacific island ecosystem. Balance human needs against ecological sustainability across 10 decades. Every choice has tradeoffs — and dice determine whether risks become reality.</p>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--forest)"></div>Native Forest</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--farm)"></div>Farmland</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--urban)"></div>Urban</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--degraded)"></div>Degraded</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--coastal)"></div>Coastal</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--forest-light)"></div>Reserve</div>
+                </div>
+            </div>
+
+            <div class="panel-section" id="hex-detail-panel" style="display:none">
+                <h3>🔍 Selected Tile</h3>
+                <div class="hex-info" id="hex-detail"></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>🔧 Management Actions</h3>
+                <div class="actions-remaining" id="actions-remaining">2 actions remaining this decade</div>
+                <div style="margin-top:8px">
+                    <button class="action-btn" onclick="doAction('clear_forest')" id="btn-clear">
+                        <span class="act-icon">🪓</span> Clear Forest → Farmland
+                        <span class="act-cost">+Food −Bio</span>
+                    </button>
+                    <button class="action-btn" onclick="doAction('urbanize')" id="btn-urban">
+                        <span class="act-icon">🏗️</span> Build Urban Area
+                        <span class="act-cost">+Pop −Water</span>
+                    </button>
+                    <button class="action-btn" onclick="doAction('restore')" id="btn-restore">
+                        <span class="act-icon">🌱</span> Restore Degraded Land
+                        <span class="act-cost">+Bio +Eco</span>
+                    </button>
+                    <button class="action-btn" onclick="doAction('conserve')" id="btn-conserve">
+                        <span class="act-icon">🛡️</span> Create Protected Reserve
+                        <span class="act-cost">+Bio −Food</span>
+                    </button>
+                    <button class="action-btn" onclick="doAction('invasive')" id="btn-invasive">
+                        <span class="act-icon">🐍</span> Manage Invasive Species
+                        <span class="act-cost">+Bio (cost)</span>
+                    </button>
+                    <button class="action-btn" onclick="doAction('water')" id="btn-water">
+                        <span class="act-icon">💧</span> Water Conservation Program
+                        <span class="act-cost">+Water</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>🎲 Dice Outcomes</h3>
+                <div class="dice-display" id="dice-display">
+                    <div class="die" id="die1">?</div>
+                    <div class="die" id="die2">?</div>
+                </div>
+            </div>
+
+            <button class="advance-btn" onclick="advanceDecade()" id="advance-btn">
+                ▶ Advance to Next Decade
+            </button>
+
+            <div class="panel-section">
+                <h3>📋 Event Log</h3>
+                <div class="event-log" id="event-log">
+                    <div class="event-item"><strong>2020s:</strong> Your island has 19 habitat patches, 12 native species, and a population of 5,000. Manage wisely.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-over-overlay" id="game-over" style="display:none">
+        <div class="game-over-box">
+            <h2 id="go-title">Simulation Complete</h2>
+            <p id="go-text"></p>
+            <p id="go-stats"></p>
+            <button class="restart-btn" onclick="restartGame()">🔄 Run New Simulation</button>
+        </div>
+    </div>
+
+    <script>
+        // === GAME STATE ===
+        const HEX_SIZE = 36;
+        const TOTAL_DECADES = 10;
+
+        // Hex grid layout: offset coordinates for a nice island shape (19 hexes)
+        const HEX_LAYOUT = [
+                        [0,-2],[1,-2],
+                    [-1,-1],[0,-1],[1,-1],[2,-1],
+                [-1,0],[0,0],[1,0],[2,0],
+                    [-1,1],[0,1],[1,1],[2,1],
+                        [0,2],[1,2],
+            // Coastal ring (partial)
+            [-2,0], [2,-2], [-2,1]
+        ];
+
+        const LAND_TYPES = {
+            forest:   { name: 'Native Forest', color: '#1e7a3a', icon: '🌳', water: 3, food: 1, bio: 4, eco: 4 },
+            farm:     { name: 'Farmland',      color: '#c9960c', icon: '🌾', water: -2, food: 4, bio: 1, eco: 1 },
+            urban:    { name: 'Urban',         color: '#6b7b8d', icon: '🏘️', water: -3, food: -1, bio: 0, eco: 0 },
+            degraded: { name: 'Degraded',      color: '#7a4510', icon: '🏜️', water: -1, food: 0, bio: 0, eco: -1 },
+            coastal:  { name: 'Coastal',       color: '#3aafa9', icon: '🐚', water: 1, food: 2, bio: 3, eco: 3 },
+            reserve:  { name: 'Protected',     color: '#2ecc71', icon: '🛡️', water: 4, food: 0, bio: 5, eco: 5 }
+        };
+
+        let state = {
+            turn: 1,
+            actionsLeft: 2,
+            population: 5000,
+            popGrowth: 0.12,
+            freshwater: 85,
+            foodSecurity: 60,
+            biodiversity: 100,
+            ecosystemHealth: 82,
+            nativeSpecies: 12,
+            invasivePresent: false,
+            invasiveStrength: 0,
+            selectedHex: null,
+            tiles: [],
+            history: {
+                freshwater: [85],
+                food: [60],
+                bio: [100],
+                eco: [82]
+            },
+            gameOver: false
+        };
+
+        // Initialize tiles
+        function initTiles() {
+            // 3 coastal, rest mostly forest with a couple farms
+            const types = [];
+            for (let i = 0; i < HEX_LAYOUT.length; i++) {
+                if (i >= 16) types.push('coastal');
+                else if (i === 7) types.push('farm'); // center farm
+                else if (i === 8) types.push('farm');
+                else if (i === 4) types.push('urban'); // small town
+                else types.push('forest');
+            }
+            state.tiles = types;
+        }
+
+        // === HEX RENDERING ===
+        function hexCorners(cx, cy, size) {
+            const corners = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 180) * (60 * i - 30);
+                corners.push([cx + size * Math.cos(angle), cy + size * Math.sin(angle)]);
+            }
+            return corners;
+        }
+
+        function hexToPixel(q, r) {
+            const x = HEX_SIZE * (Math.sqrt(3) * q + Math.sqrt(3) / 2 * r);
+            const y = HEX_SIZE * (3 / 2 * r);
+            return { x, y };
+        }
+
+        function renderHexGrid() {
+            const grid = document.getElementById('hex-grid');
+            grid.innerHTML = '';
+
+            // Find center offset
+            const container = document.getElementById('island-container');
+            const cw = container.clientWidth;
+            const ch = container.clientHeight;
+            const offsetX = cw / 2;
+            const offsetY = ch / 2;
+
+            HEX_LAYOUT.forEach((coord, i) => {
+                const [q, r] = coord;
+                const { x, y } = hexToPixel(q, r);
+                const px = offsetX + x;
+                const py = offsetY + y;
+                const type = LAND_TYPES[state.tiles[i]];
+
+                const corners = hexCorners(px, py, HEX_SIZE);
+                const points = corners.map(c => c.join(',')).join(' ');
+
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.style.position = 'absolute';
+                svg.style.left = (px - HEX_SIZE - 2) + 'px';
+                svg.style.top = (py - HEX_SIZE - 2) + 'px';
+                svg.style.width = (HEX_SIZE * 2 + 4) + 'px';
+                svg.style.height = (HEX_SIZE * 2 + 4) + 'px';
+                svg.style.overflow = 'visible';
+                svg.setAttribute('class', 'hex' + (state.selectedHex === i ? ' selected' : ''));
+                svg.onclick = () => selectHex(i);
+
+                const localCorners = hexCorners(HEX_SIZE + 2, HEX_SIZE + 2, HEX_SIZE);
+                const localPoints = localCorners.map(c => c.join(',')).join(' ');
+
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                polygon.setAttribute('points', localPoints);
+                polygon.setAttribute('fill', type.color);
+                polygon.setAttribute('stroke', state.selectedHex === i ? '#f1c40f' : 'rgba(255,255,255,0.15)');
+                polygon.setAttribute('stroke-width', state.selectedHex === i ? '3' : '1.5');
+                svg.appendChild(polygon);
+
+                grid.appendChild(svg);
+
+                // Icon
+                const icon = document.createElement('div');
+                icon.className = 'hex-icon';
+                icon.style.left = (px - 9) + 'px';
+                icon.style.top = (py - 10) + 'px';
+                icon.textContent = type.icon;
+                grid.appendChild(icon);
+            });
+        }
+
+        function selectHex(i) {
+            state.selectedHex = i;
+            renderHexGrid();
+            showHexDetail(i);
+        }
+
+        function showHexDetail(i) {
+            const panel = document.getElementById('hex-detail-panel');
+            const detail = document.getElementById('hex-detail');
+            panel.style.display = 'block';
+            const type = LAND_TYPES[state.tiles[i]];
+            detail.innerHTML = `
+                <strong>${type.icon} ${type.name}</strong> (Tile ${i + 1})<br>
+                Water contribution: ${type.water > 0 ? '+' : ''}${type.water}<br>
+                Food contribution: ${type.food > 0 ? '+' : ''}${type.food}<br>
+                Biodiversity: ${type.bio > 0 ? '+' : ''}${type.bio}<br>
+                Ecosystem services: ${type.eco > 0 ? '+' : ''}${type.eco}
+            `;
+        }
+
+        // === ACTIONS ===
+        function doAction(action) {
+            if (state.actionsLeft <= 0 || state.gameOver) return;
+
+            const sel = state.selectedHex;
+            let logMsg = '';
+            let logClass = '';
+
+            switch (action) {
+                case 'clear_forest':
+                    const forestTiles = state.tiles.map((t, i) => t === 'forest' ? i : -1).filter(i => i >= 0);
+                    if (forestTiles.length === 0) { addLog('No forest remaining to clear!', 'warn'); return; }
+                    const clearIdx = sel !== null && state.tiles[sel] === 'forest' ? sel : forestTiles[0];
+                    state.tiles[clearIdx] = 'farm';
+                    logMsg = `🪓 Cleared native forest (Tile ${clearIdx + 1}) for farmland. Food up, biodiversity down.`;
+                    logClass = 'warn';
+                    break;
+
+                case 'urbanize':
+                    const farmTiles = state.tiles.map((t, i) => (t === 'farm' || t === 'degraded') ? i : -1).filter(i => i >= 0);
+                    if (farmTiles.length === 0) { addLog('No suitable land for urban development!', 'warn'); return; }
+                    const urbIdx = sel !== null && (state.tiles[sel] === 'farm' || state.tiles[sel] === 'degraded') ? sel : farmTiles[0];
+                    state.tiles[urbIdx] = 'urban';
+                    state.popGrowth += 0.03;
+                    logMsg = `🏗️ Built urban area (Tile ${urbIdx + 1}). Population capacity increased.`;
+                    logClass = '';
+                    break;
+
+                case 'restore':
+                    const degTiles = state.tiles.map((t, i) => t === 'degraded' ? i : -1).filter(i => i >= 0);
+                    if (degTiles.length === 0) { addLog('No degraded land to restore!', 'warn'); return; }
+                    const restIdx = sel !== null && state.tiles[sel] === 'degraded' ? sel : degTiles[0];
+                    state.tiles[restIdx] = 'forest';
+                    logMsg = `🌱 Restored degraded land (Tile ${restIdx + 1}) to native forest. Long-term benefits.`;
+                    logClass = 'good';
+                    break;
+
+                case 'conserve':
+                    const conTiles = state.tiles.map((t, i) => t === 'forest' ? i : -1).filter(i => i >= 0);
+                    if (conTiles.length === 0) { addLog('No forest available for protection!', 'warn'); return; }
+                    const conIdx = sel !== null && state.tiles[sel] === 'forest' ? sel : conTiles[0];
+                    state.tiles[conIdx] = 'reserve';
+                    logMsg = `🛡️ Protected forest (Tile ${conIdx + 1}) as conservation reserve. Biodiversity safeguarded.`;
+                    logClass = 'good';
+                    break;
+
+                case 'invasive':
+                    if (!state.invasivePresent) { addLog('No invasive species detected yet.', ''); return; }
+                    state.invasiveStrength = Math.max(0, state.invasiveStrength - 3);
+                    logMsg = `🐍 Invasive species management deployed. Threat reduced${state.invasiveStrength <= 0 ? ' — population controlled!' : '.'}`;
+                    logClass = 'good';
+                    break;
+
+                case 'water':
+                    state.freshwater = Math.min(100, state.freshwater + 8);
+                    logMsg = `💧 Water conservation program implemented. Freshwater reserves improved.`;
+                    logClass = 'good';
+                    break;
+            }
+
+            state.actionsLeft--;
+            addLog(logMsg, logClass);
+            updateDisplay();
+        }
+
+        // === ADVANCE DECADE ===
+        function advanceDecade() {
+            if (state.gameOver) return;
+
+            // Roll dice
+            const d1 = Math.floor(Math.random() * 6) + 1;
+            const d2 = Math.floor(Math.random() * 6) + 1;
+            animateDice(d1, d2);
+
+            const diceTotal = d1 + d2;
+
+            // Population growth
+            state.population = Math.round(state.population * (1 + state.popGrowth));
+
+            // Count tile types
+            const counts = { forest: 0, farm: 0, urban: 0, degraded: 0, coastal: 0, reserve: 0 };
+            state.tiles.forEach(t => counts[t]++);
+
+            // === CALCULATE RESOURCE CHANGES ===
+
+            // Freshwater: forests and reserves recharge, urban/farm deplete, population pressure
+            let waterChange = 0;
+            state.tiles.forEach(t => { waterChange += LAND_TYPES[t].water; });
+            waterChange -= (state.population / 3000); // population pressure
+            waterChange *= 1.2;
+            state.freshwater = Math.max(0, Math.min(100, state.freshwater + waterChange));
+
+            // Food: farms produce, population consumes
+            let foodProd = 0;
+            state.tiles.forEach(t => { foodProd += LAND_TYPES[t].food; });
+            let foodNeed = state.population / 800;
+            state.foodSecurity = Math.max(0, Math.min(100, 30 + (foodProd - foodNeed) * 6));
+
+            // Biodiversity
+            let bioBase = 0;
+            state.tiles.forEach(t => { bioBase += LAND_TYPES[t].bio; });
+            let bioScore = (bioBase / (19 * 5)) * 100;
+
+            // Invasive species impact on biodiversity
+            if (state.invasivePresent && state.invasiveStrength > 0) {
+                // Dice determine severity: low roll = more damage
+                const invasiveDamage = state.invasiveStrength * (7 - Math.min(d1, d2));
+                bioScore -= invasiveDamage;
+                if (state.invasiveStrength > 2) {
+                    const speciesRoll = d1;
+                    if (speciesRoll <= state.invasiveStrength - 1) {
+                        state.nativeSpecies = Math.max(1, state.nativeSpecies - 1);
+                        addLog(`🦜 A native species has gone locally extinct! (${state.nativeSpecies} remaining)`, 'bad');
+                    }
+                }
+            }
+
+            state.biodiversity = Math.max(0, Math.min(100, bioScore));
+
+            // Ecosystem health: composite
+            let ecoBase = 0;
+            state.tiles.forEach(t => { ecoBase += LAND_TYPES[t].eco; });
+            state.ecosystemHealth = Math.max(0, Math.min(100,
+                (ecoBase / (19 * 5)) * 50 + (state.biodiversity * 0.3) + (state.freshwater * 0.2)
+            ));
+
+            // === RANDOM EVENTS (dice-driven) ===
+
+            // Invasive species arrival (turn 3-4, if not present)
+            if (!state.invasivePresent && state.turn >= 3 && state.turn <= 5) {
+                if (diceTotal <= 7) {
+                    state.invasivePresent = true;
+                    state.invasiveStrength = 4;
+                    addLog(`🐍 INVASIVE PREDATOR ARRIVES! A brown tree snake has been spotted on the island. Native bird species are at severe risk. Use "Manage Invasive Species" action to respond!`, 'bad');
+                }
+            }
+
+            // Invasive strength grows if unmanaged
+            if (state.invasivePresent && state.invasiveStrength > 0) {
+                state.invasiveStrength = Math.min(6, state.invasiveStrength + 1);
+            }
+
+            // Storm event (dice driven)
+            if (diceTotal === 2 || diceTotal === 12) {
+                addLog(`🌊 Extreme storm hits the island! Coastal areas damaged, crops destroyed.`, 'bad');
+                state.foodSecurity = Math.max(0, state.foodSecurity - 15);
+                // Degrade a random farm
+                const farmIdx = state.tiles.findIndex(t => t === 'farm');
+                if (farmIdx >= 0) {
+                    state.tiles[farmIdx] = 'degraded';
+                    addLog(`Storm degraded farmland at Tile ${farmIdx + 1}.`, 'bad');
+                }
+            }
+
+            // Drought (low dice + low forest)
+            if (diceTotal <= 4 && counts.forest + counts.reserve < 5) {
+                addLog(`☀️ Drought conditions! Low forest cover reduces rainfall capture.`, 'bad');
+                state.freshwater = Math.max(0, state.freshwater - 12);
+            }
+
+            // Degradation: overfarmed land with low water degrades
+            if (state.freshwater < 30) {
+                const farmTiles = state.tiles.map((t, i) => t === 'farm' ? i : -1).filter(i => i >= 0);
+                if (farmTiles.length > 0 && d1 <= 2) {
+                    const idx = farmTiles[Math.floor(Math.random() * farmTiles.length)];
+                    state.tiles[idx] = 'degraded';
+                    addLog(`🏜️ Farmland at Tile ${idx + 1} degraded due to water depletion!`, 'bad');
+                }
+            }
+
+            // Ecosystem collapse tipping point
+            if (state.biodiversity < 25 && state.ecosystemHealth < 25) {
+                addLog(`⚠️ ECOSYSTEM COLLAPSE WARNING: Pollination, pest control, and soil health failing!`, 'bad');
+                state.foodSecurity = Math.max(0, state.foodSecurity - 20);
+            }
+
+            // Population pressure: if food low, population declines
+            if (state.foodSecurity < 20) {
+                state.population = Math.round(state.population * 0.9);
+                addLog(`📉 Food shortage! Population declining.`, 'bad');
+            }
+
+            // Good events
+            if (diceTotal >= 10 && counts.reserve >= 2) {
+                addLog(`🌺 Ecotourism boom! Protected reserves attract visitors and revenue.`, 'good');
+                state.foodSecurity = Math.min(100, state.foodSecurity + 5);
+            }
+
+            if (diceTotal === 7 && counts.forest + counts.reserve >= 8) {
+                addLog(`🌧️ Healthy forest cover enhances rainfall. Aquifer recharging well.`, 'good');
+                state.freshwater = Math.min(100, state.freshwater + 8);
+            }
+
+            // Record history
+            state.history.freshwater.push(Math.round(state.freshwater));
+            state.history.food.push(Math.round(state.foodSecurity));
+            state.history.bio.push(Math.round(state.biodiversity));
+            state.history.eco.push(Math.round(state.ecosystemHealth));
+
+            // Advance turn
+            state.turn++;
+            state.actionsLeft = 2;
+
+            // Check game over
+            if (state.turn > TOTAL_DECADES) {
+                endGame();
+                return;
+            }
+
+            // Check catastrophic failure
+            if (state.freshwater <= 0 && state.foodSecurity <= 0) {
+                endGame(true);
+                return;
+            }
+
+            addLog(`<strong>${2020 + (state.turn - 1) * 10}s:</strong> Decade begins. Population: ${state.population.toLocaleString()}. You have 2 actions.`, '');
+            updateDisplay();
+        }
+
+        function animateDice(v1, v2) {
+            const d1 = document.getElementById('die1');
+            const d2 = document.getElementById('die2');
+            d1.className = 'die rolling';
+            d2.className = 'die rolling';
+            d1.textContent = '?';
+            d2.textContent = '?';
+            setTimeout(() => {
+                d1.className = 'die';
+                d2.className = 'die';
+                d1.textContent = v1;
+                d2.textContent = v2;
+            }, 400);
+        }
+
+        function endGame(catastrophe = false) {
+            state.gameOver = true;
+            const overlay = document.getElementById('game-over');
+            overlay.style.display = 'flex';
+
+            const title = document.getElementById('go-title');
+            const text = document.getElementById('go-text');
+            const stats = document.getElementById('go-stats');
+
+            const score = Math.round((state.freshwater + state.foodSecurity + state.biodiversity + state.ecosystemHealth) / 4);
+
+            if (catastrophe) {
+                title.textContent = '🏚️ Island Collapse';
+                text.textContent = 'Your island has suffered catastrophic resource failure. Both freshwater and food production have reached zero. The population cannot sustain itself.';
+            } else if (score >= 70) {
+                title.textContent = '🌺 Thriving Island!';
+                text.textContent = 'Your management balanced human needs with ecological sustainability. The island enters the next century in strong condition.';
+            } else if (score >= 45) {
+                title.textContent = '⚖️ Fragile Balance';
+                text.textContent = 'Your island survives, but with significant damage to some systems. Future generations face challenges from the tradeoffs you made.';
+            } else {
+                title.textContent = '⚠️ Struggling Island';
+                text.textContent = 'The island has suffered severe degradation. While the population persists, many native species are lost and resources are strained.';
+            }
+
+            stats.innerHTML = `
+                <strong>Final Score: ${score}/100</strong><br><br>
+                🌊 Freshwater: ${Math.round(state.freshwater)}% &nbsp;
+                🌾 Food: ${Math.round(state.foodSecurity)}% &nbsp;
+                🦜 Biodiversity: ${Math.round(state.biodiversity)}% (${state.nativeSpecies}/12 species)<br>
+                🌿 Ecosystem: ${Math.round(state.ecosystemHealth)}% &nbsp;
+                👥 Population: ${state.population.toLocaleString()}
+            `;
+
+            updateDisplay();
+        }
+
+        function restartGame() {
+            state.turn = 1;
+            state.actionsLeft = 2;
+            state.population = 5000;
+            state.popGrowth = 0.12;
+            state.freshwater = 85;
+            state.foodSecurity = 60;
+            state.biodiversity = 100;
+            state.ecosystemHealth = 82;
+            state.nativeSpecies = 12;
+            state.invasivePresent = false;
+            state.invasiveStrength = 0;
+            state.selectedHex = null;
+            state.gameOver = false;
+            state.history = { freshwater: [85], food: [60], bio: [100], eco: [82] };
+            initTiles();
+            document.getElementById('game-over').style.display = 'none';
+            document.getElementById('event-log').innerHTML = '<div class="event-item"><strong>2020s:</strong> Your island has 19 habitat patches, 12 native species, and a population of 5,000. Manage wisely.</div>';
+            updateDisplay();
+        }
+
+        // === DISPLAY ===
+        function updateDisplay() {
+            document.getElementById('decade-display').textContent = (2020 + (state.turn - 1) * 10) + 's';
+            document.getElementById('pop-display').textContent = state.population.toLocaleString();
+            document.getElementById('turn-display').textContent = `${state.turn} / ${TOTAL_DECADES}`;
+            document.getElementById('actions-remaining').textContent = `${state.actionsLeft} action${state.actionsLeft !== 1 ? 's' : ''} remaining this decade`;
+
+            updateDashCard('fresh', state.freshwater, '%', getFreshDetail());
+            updateDashCard('food', state.foodSecurity, '%', getFoodDetail());
+            updateDashCard('bio', state.biodiversity, '%', `${state.nativeSpecies}/12 native species`);
+            updateDashCard('eco', state.ecosystemHealth, '%', getEcoDetail());
+
+            renderHexGrid();
+            renderChart();
+
+            // Disable buttons based on state
+            document.querySelectorAll('.action-btn').forEach(b => b.disabled = state.actionsLeft <= 0);
+        }
+
+        function updateDashCard(id, val, suffix, detail) {
+            const v = Math.round(val);
+            const color = v >= 60 ? 'var(--good)' : v >= 35 ? 'var(--warn)' : 'var(--danger)';
+            document.getElementById(id + '-val').textContent = v + suffix;
+            document.getElementById(id + '-val').style.color = color;
+            document.getElementById(id + '-bar').style.width = v + '%';
+            document.getElementById(id + '-bar').style.background = color;
+            document.getElementById(id + '-detail').textContent = detail;
+        }
+
+        function getFreshDetail() {
+            if (state.freshwater >= 70) return 'Aquifer healthy';
+            if (state.freshwater >= 40) return 'Aquifer stressed';
+            if (state.freshwater >= 20) return 'Aquifer depleting!';
+            return 'CRITICAL: Water crisis!';
+        }
+
+        function getFoodDetail() {
+            if (state.foodSecurity >= 70) return 'Food surplus';
+            if (state.foodSecurity >= 45) return 'Adequate supply';
+            if (state.foodSecurity >= 20) return 'Food insecurity';
+            return 'FAMINE CONDITIONS';
+        }
+
+        function getEcoDetail() {
+            if (state.ecosystemHealth >= 70) return 'Services intact';
+            if (state.ecosystemHealth >= 40) return 'Services degraded';
+            if (state.ecosystemHealth >= 20) return 'Services failing!';
+            return 'COLLAPSE IMMINENT';
+        }
+
+        function addLog(msg, cls) {
+            const log = document.getElementById('event-log');
+            const item = document.createElement('div');
+            item.className = 'event-item' + (cls ? ' ' + cls : '');
+            item.innerHTML = msg;
+            log.insertBefore(item, log.firstChild);
+        }
+
+        // === CHART ===
+        function renderChart() {
+            const canvas = document.getElementById('history-chart');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.parentElement.clientWidth - 28;
+            canvas.height = 140;
+            const W = canvas.width;
+            const H = canvas.height;
+            const pad = { top: 10, right: 10, bottom: 20, left: 30 };
+
+            ctx.clearRect(0, 0, W, H);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = 1;
+            for (let y = 0; y <= 100; y += 25) {
+                const py = pad.top + (1 - y / 100) * (H - pad.top - pad.bottom);
+                ctx.beginPath();
+                ctx.moveTo(pad.left, py);
+                ctx.lineTo(W - pad.right, py);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.font = '9px DM Sans';
+                ctx.fillText(y + '%', 2, py + 3);
+            }
+
+            // Data lines
+            const datasets = [
+                { data: state.history.freshwater, color: '#1abc9c' },
+                { data: state.history.food, color: '#f1c40f' },
+                { data: state.history.bio, color: '#2ecc71' },
+                { data: state.history.eco, color: '#3498db' }
+            ];
+
+            const maxPts = TOTAL_DECADES + 1;
+            datasets.forEach(ds => {
+                ctx.strokeStyle = ds.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ds.data.forEach((val, i) => {
+                    const px = pad.left + (i / (maxPts - 1)) * (W - pad.left - pad.right);
+                    const py = pad.top + (1 - val / 100) * (H - pad.top - pad.bottom);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                });
+                ctx.stroke();
+
+                // Dot on latest point
+                const lastI = ds.data.length - 1;
+                const lx = pad.left + (lastI / (maxPts - 1)) * (W - pad.left - pad.right);
+                const ly = pad.top + (1 - ds.data[lastI] / 100) * (H - pad.top - pad.bottom);
+                ctx.fillStyle = ds.color;
+                ctx.beginPath();
+                ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // X labels
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.font = '9px DM Sans';
+            for (let i = 0; i < maxPts; i += 2) {
+                const px = pad.left + (i / (maxPts - 1)) * (W - pad.left - pad.right);
+                ctx.fillText((2020 + i * 10) + '', px - 12, H - 3);
+            }
+
+            // Legend
+            const labels = ['Water', 'Food', 'Biodiversity', 'Ecosystem'];
+            const colors = ['#1abc9c', '#f1c40f', '#2ecc71', '#3498db'];
+            let lx = pad.left;
+            labels.forEach((label, i) => {
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(lx, H - 16, 8, 8);
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.fillText(label, lx + 11, H - 9);
+                lx += ctx.measureText(label).width + 22;
+            });
+        }
+
+        // === INIT ===
+        initTiles();
+        updateDisplay();
+        window.addEventListener('resize', () => { renderHexGrid(); renderChart(); });
+    </script>
+</body>
+</html>
